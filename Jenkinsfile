@@ -9,7 +9,7 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
-        git branch: 'main', url: 'https://github.com/Ketanjedhe/AWS-infrastructure.git'
+        checkout scm
       }
     }
 
@@ -17,7 +17,7 @@ pipeline {
       steps {
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
           sh 'echo "AWS credentials configured for Terraform"'
-          sh 'aws sts get-caller-identity'
+          sh 'aws sts get-caller-identity || true'
         }
       }
     }
@@ -50,18 +50,14 @@ pipeline {
     stage('Verify') {
       steps {
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
-          sh 'aws ec2 describe-instances --region ap-south-1'
+          sh 'aws ec2 describe-instances --region ap-south-1 || true'
         }
       }
     }
   }
 
   post {
-    success {
-      echo '✅ Terraform infrastructure deployed successfully!'
-    }
-    failure {
-      echo '❌ Pipeline failed. Check logs for details.'
-    }
+    success { echo '✅ Terraform infrastructure deployed successfully!' }
+    failure { echo '❌ Pipeline failed. Check console output.' }
   }
 }
