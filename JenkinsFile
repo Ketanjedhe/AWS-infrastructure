@@ -1,0 +1,67 @@
+pipeline {
+  agent any
+
+  environment {
+    AWS_REGION = "ap-south-1"
+    TF_WORKSPACE = "dev"
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        git branch: 'main', url: 'https://github.com/Ketanjedhe/AWS-infrastructure.git'
+      }
+    }
+
+    stage('Set AWS Credentials') {
+      steps {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+          sh 'echo "AWS credentials configured for Terraform"'
+          sh 'aws sts get-caller-identity'
+        }
+      }
+    }
+
+    stage('Terraform Init') {
+      steps {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+          sh 'terraform init -input=false'
+        }
+      }
+    }
+
+    stage('Terraform Plan') {
+      steps {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+          sh 'terraform plan -out=tfplan -input=false'
+        }
+      }
+    }
+
+    stage('Terraform Apply') {
+      steps {
+        input message: 'Approve deployment?'
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+          sh 'terraform apply -input=false -auto-approve tfplan'
+        }
+      }
+    }
+
+    stage('Verify') {
+      steps {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+          sh 'aws ec2 describe-instances --region ap-south-1'
+        }
+      }
+    }
+  }
+
+  post {
+    success {
+      echo '✅ Terraform infrastructure deployed successfully!'
+    }
+    failure {
+      echo '❌ Pipeline failed. Check logs for details.'
+    }
+  }
+}
